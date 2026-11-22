@@ -217,11 +217,6 @@ response_variable: rezept
   „Setz Milch auf die Einkaufsliste“ als Rezept „Milch“ verstanden. Kürzere Fragen wie „Was brauche ich für Lasagne?“
   beantwortet ein KI-Assistent über die Werkzeuge.
 
-> **Tipp:** [examples/custom_sentences/de/einkaufsliste.yaml](examples/custom_sentences/de/einkaufsliste.yaml)
-> verbessert das Hinzufügen einzelner Artikel per Sprache, für alle To-do-Listen. Die eingebaute Vorlage für
-> „Milch auf die Einkaufsliste“ macht aus „Schreibst du Skyr auf die Einkaufsliste?“ den Artikel „Schreibst du Skyr“.
-> Mit der Datei werden Fragen und Bitten wie „Kannst du bitte Milch auf die Einkaufsliste setzen?“ richtig zerlegt.
-
 ## Beispiele
 
 ```yaml
