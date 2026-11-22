@@ -1,0 +1,28 @@
+set_category:
+  target:
+    entity:
+      integration: buymeapie
+      domain: todo
+  fields:
+    item:
+      required: true
+      example: Hafermilch
+      selector:
+        text:
+    category:
+      required: true
+      example: Kühlregal
+      selector:
+        text:
+
+suggest_category:
+  target:
+    entity:
+      integration: buymeapie
+      domain: todo
+  fields:
+    item:
+      required: true
+      example: Hafermilch
+      selector:
+        text:

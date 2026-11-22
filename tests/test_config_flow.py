@@ -7,7 +7,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.buymeapie.const import (
-    CONF_LOGIN, CONF_PIN, CONF_SCAN_INTERVAL, CONF_SHOW_COMPLETED, DOMAIN,
+    CONF_AUTO_CATEGORIZE, CONF_CATEGORY_IN_DESCRIPTION, CONF_LOGIN, CONF_PIN,
+    CONF_SCAN_INTERVAL, CONF_SHOW_COMPLETED, DOMAIN,
 )
 
 from .conftest import API
@@ -81,7 +82,18 @@ async def test_options(hass: HomeAssistant, mock_api, config_entry) -> None:
     await hass.async_block_till_done()
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {CONF_SCAN_INTERVAL: 60.0, CONF_SHOW_COMPLETED: False}
+        result["flow_id"],
+        {CONF_SCAN_INTERVAL: 60.0, CONF_SHOW_COMPLETED: False,
+         CONF_AUTO_CATEGORIZE: True, CONF_CATEGORY_IN_DESCRIPTION: False},
+    )
+    assert result["step_id"] == "categories"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"category_6": " Gemüse ", "category_1": "", "category_7": "🧀 Kühlregal & Molkerei"},
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert config_entry.options == {CONF_SCAN_INTERVAL: 60, CONF_SHOW_COMPLETED: False}
+    assert config_entry.options == {
+        CONF_SCAN_INTERVAL: 60, CONF_SHOW_COMPLETED: False,
+        CONF_AUTO_CATEGORIZE: True, CONF_CATEGORY_IN_DESCRIPTION: False,
+        "category_6": "Gemüse",
+    }

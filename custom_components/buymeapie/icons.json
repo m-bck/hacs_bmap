@@ -5,5 +5,13 @@
         "default": "mdi:cart-outline"
       }
     }
+  },
+  "services": {
+    "set_category": {
+      "service": "mdi:palette"
+    },
+    "suggest_category": {
+      "service": "mdi:lightbulb-question-outline"
+    }
   }
 }

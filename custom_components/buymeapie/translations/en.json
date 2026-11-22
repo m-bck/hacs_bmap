@@ -37,11 +37,55 @@
         "title": "Options",
         "data": {
           "scan_interval": "Polling interval",
-          "show_completed": "Show purchased items"
+          "show_completed": "Show purchased items",
+          "auto_categorize": "Categorise new items automatically",
+          "category_in_description": "Show category in the description"
         },
         "data_description": {
           "scan_interval": "How often to check for changes (at least 20 seconds).",
-          "show_completed": "Shows purchased items as completed. Note: \"Remove completed\" will then also delete them in Buy Me a Pie."
+          "show_completed": "Shows purchased items as completed. Note: \"Remove completed\" will then also delete them in Buy Me a Pie.",
+          "auto_categorize": "Items newly added from Home Assistant without a colour get a matching category (keywords and your own history).",
+          "category_in_description": "Shows e.g. “2 · 🥦 Obst & Gemüse” below the item. The amount stays editable."
+        }
+      },
+      "categories": {
+        "title": "Name the categories",
+        "description": "Buy Me a Pie only knows colours. Define what each colour stands for. The suggestions were derived from a real shopping history.",
+        "data": {
+          "category_7": "Turquoise (7)",
+          "category_6": "Green (6)",
+          "category_5": "Pink (5)",
+          "category_4": "Orange (4)",
+          "category_3": "Red (3)",
+          "category_2": "Purple (2)",
+          "category_1": "Blue (1)",
+          "category_0": "No colour (grey) (0)"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_category": {
+      "name": "Set category",
+      "description": "Sets the category (colour) of an item. It applies to the item name in all lists, just like in the app.",
+      "fields": {
+        "item": {
+          "name": "Item",
+          "description": "Name of the item, e.g. oat milk."
+        },
+        "category": {
+          "name": "Category",
+          "description": "Colour number (0–28) or (part of) its name."
+        }
+      }
+    },
+    "suggest_category": {
+      "name": "Suggest category",
+      "description": "Shows which category the integration would choose for an item and why.",
+      "fields": {
+        "item": {
+          "name": "Item",
+          "description": "Name of the item."
         }
       }
     }

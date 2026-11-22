@@ -37,11 +37,55 @@
         "title": "Optionen",
         "data": {
           "scan_interval": "Abfrageintervall",
-          "show_completed": "Gekaufte Artikel anzeigen"
+          "show_completed": "Gekaufte Artikel anzeigen",
+          "auto_categorize": "Neue Artikel automatisch kategorisieren",
+          "category_in_description": "Kategorie in der Beschreibung anzeigen"
         },
         "data_description": {
           "scan_interval": "Wie oft nach Änderungen gefragt wird (mindestens 20 Sekunden).",
-          "show_completed": "Zeigt gekaufte Artikel als erledigt an. Achtung: \"Erledigte entfernen\" löscht sie dann auch in Buy Me a Pie."
+          "show_completed": "Zeigt gekaufte Artikel als erledigt an. Achtung: \"Erledigte entfernen\" löscht sie dann auch in Buy Me a Pie.",
+          "auto_categorize": "Artikel, die aus Home Assistant neu angelegt werden und noch keine Farbe haben, bekommen eine passende Kategorie (Schlagwörter und eigener Verlauf).",
+          "category_in_description": "Zeigt z. B. „2 · 🥦 Obst & Gemüse“ unter dem Artikel. Die Menge bleibt editierbar."
+        }
+      },
+      "categories": {
+        "title": "Kategorien benennen",
+        "description": "Buy Me a Pie kennt nur Farben. Hier legst du fest, wofür jede Farbe steht. Die Vorschläge wurden aus einem echten Einkaufsverlauf abgeleitet.",
+        "data": {
+          "category_7": "Türkis (7)",
+          "category_6": "Grün (6)",
+          "category_5": "Pink (5)",
+          "category_4": "Orange (4)",
+          "category_3": "Rot (3)",
+          "category_2": "Lila (2)",
+          "category_1": "Blau (1)",
+          "category_0": "Ohne Farbe (grau) (0)"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_category": {
+      "name": "Kategorie setzen",
+      "description": "Setzt die Kategorie (Farbe) eines Artikels. Sie gilt für den Artikelnamen in allen Listen, genau wie in der App.",
+      "fields": {
+        "item": {
+          "name": "Artikel",
+          "description": "Name des Artikels, z. B. Hafermilch."
+        },
+        "category": {
+          "name": "Kategorie",
+          "description": "Nummer der Farbe (0–28) oder Name bzw. Teil des Namens, z. B. „Obst“."
+        }
+      }
+    },
+    "suggest_category": {
+      "name": "Kategorie vorschlagen",
+      "description": "Zeigt, welche Kategorie die Integration für einen Artikel wählen würde, und warum.",
+      "fields": {
+        "item": {
+          "name": "Artikel",
+          "description": "Name des Artikels."
         }
       }
     }

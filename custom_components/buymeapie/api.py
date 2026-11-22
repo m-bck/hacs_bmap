@@ -12,8 +12,10 @@ from dataclasses import dataclass
 import json as jsonlib
 import logging
 from typing import Any
+from urllib.parse import quote
 
 import aiohttp
+from yarl import URL
 
 from .const import API_BASE_URL, REQUEST_TIMEOUT
 
@@ -97,6 +99,35 @@ class BuyMeAPieList:
         )
 
 
+@dataclass(slots=True)
+class BuyMeAPieUniqueItem:
+    """An entry of the account wide item history ("unique item").
+
+    The category (colour group) of an item lives here, keyed by its title.
+    """
+
+    title: str
+    group_id: int
+    use_count: int
+    permanent: bool
+    deleted: bool
+    last_use: float
+    updated_at: int
+
+    @classmethod
+    def from_api(cls, data: dict[str, Any]) -> BuyMeAPieUniqueItem:
+        """Create a history entry from an API response."""
+        return cls(
+            title=data.get("title") or "",
+            group_id=int(data.get("group_id") or 0),
+            use_count=int(data.get("use_count") or 0),
+            permanent=bool(data.get("permanent", False)),
+            deleted=bool(data.get("deleted", False)),
+            last_use=float(data.get("last_use") or 0),
+            updated_at=int(data.get("updated_at") or 0),
+        )
+
+
 class BuyMeAPieApi:
     """Minimal async client for the Buy Me a Pie API."""
 
@@ -123,7 +154,8 @@ class BuyMeAPieApi:
         json: dict[str, Any] | None = None,
     ) -> Any:
         """Send a request and return the decoded JSON body (or None)."""
-        url = f"{self._base_url}{path}"
+        # Paths are built from already percent-encoded parts.
+        url = URL(f"{self._base_url}{path}", encoded=True)
         for attempt in range(_LOCKED_RETRIES + 1):
             try:
                 async with self._session.request(
@@ -232,3 +264,23 @@ class BuyMeAPieApi:
     async def async_delete_item(self, list_id: str, item_id: str) -> None:
         """Delete an item from a list."""
         await self._request("DELETE", f"/lists/{list_id}/items/{item_id}")
+
+    async def async_get_unique_items(self) -> list[BuyMeAPieUniqueItem]:
+        """Return the account wide item history including categories."""
+        data = await self._request("GET", "/unique_items")
+        return [BuyMeAPieUniqueItem.from_api(entry) for entry in data or []]
+
+    async def async_set_unique_item(
+        self,
+        title: str,
+        *,
+        group_id: int,
+        use_count: int,
+        permanent: bool = False,
+    ) -> None:
+        """Create or update a history entry, i.e. set the category of a title."""
+        await self._request(
+            "PUT",
+            f"/unique_items/{quote(title, safe='')}",
+            json={"group_id": group_id, "permanent": permanent, "use_count": use_count},
+        )

@@ -25,16 +25,23 @@ from homeassistant.helpers.selector import (
 )
 
 from .api import BuyMeAPieApi, BuyMeAPieAuthError, BuyMeAPieError
+from .categories import DEFAULT_CATEGORIES
 from .const import (
+    CATEGORY_NAME_PREFIX,
+    CONF_AUTO_CATEGORIZE,
+    CONF_CATEGORY_IN_DESCRIPTION,
     CONF_LOGIN,
     CONF_PIN,
     CONF_SCAN_INTERVAL,
     CONF_SHOW_COMPLETED,
+    DEFAULT_AUTO_CATEGORIZE,
+    DEFAULT_CATEGORY_IN_DESCRIPTION,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SHOW_COMPLETED,
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
+    NAMED_CATEGORIES,
 )
 from .coordinator import BuyMeAPieConfigEntry
 
@@ -127,15 +134,20 @@ class BuyMeAPieConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class BuyMeAPieOptionsFlow(OptionsFlowWithReload):
-    """Options: polling interval and visibility of purchased items."""
+    """Options: polling, display and the names of the colour groups."""
+
+    def __init__(self) -> None:
+        """Initialize the options flow."""
+        self._general: dict[str, Any] = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options."""
+        """General options."""
         if user_input is not None:
             user_input[CONF_SCAN_INTERVAL] = int(user_input[CONF_SCAN_INTERVAL])
-            return self.async_create_entry(data=user_input)
+            self._general = user_input
+            return await self.async_step_categories()
 
         schema = vol.Schema(
             {
@@ -153,6 +165,12 @@ class BuyMeAPieOptionsFlow(OptionsFlowWithReload):
                 vol.Required(
                     CONF_SHOW_COMPLETED, default=DEFAULT_SHOW_COMPLETED
                 ): bool,
+                vol.Required(
+                    CONF_AUTO_CATEGORIZE, default=DEFAULT_AUTO_CATEGORIZE
+                ): bool,
+                vol.Required(
+                    CONF_CATEGORY_IN_DESCRIPTION, default=DEFAULT_CATEGORY_IN_DESCRIPTION
+                ): bool,
             }
         )
         return self.async_show_form(
@@ -160,4 +178,37 @@ class BuyMeAPieOptionsFlow(OptionsFlowWithReload):
             data_schema=self.add_suggested_values_to_schema(
                 schema, self.config_entry.options
             ),
+        )
+
+    async def async_step_categories(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Names for the colour groups (the app itself has none)."""
+        if user_input is not None:
+            # Only keep names that differ from the built-in suggestion, so
+            # improved defaults reach users who never changed them.
+            names = {}
+            for group_id in NAMED_CATEGORIES:
+                key = f"{CATEGORY_NAME_PREFIX}{group_id}"
+                value = (user_input.get(key) or "").strip()
+                if value and value != DEFAULT_CATEGORIES[group_id].name:
+                    names[key] = value
+            return self.async_create_entry(data={**self._general, **names})
+
+        schema = vol.Schema(
+            {
+                vol.Optional(f"{CATEGORY_NAME_PREFIX}{group_id}"): TextSelector()
+                for group_id in NAMED_CATEGORIES
+            }
+        )
+        suggested = {
+            f"{CATEGORY_NAME_PREFIX}{group_id}": DEFAULT_CATEGORIES[group_id].name
+            for group_id in NAMED_CATEGORIES
+        }
+        suggested.update(
+            {k: v for k, v in self.config_entry.options.items() if k.startswith(CATEGORY_NAME_PREFIX)}
+        )
+        return self.async_show_form(
+            step_id="categories",
+            data_schema=self.add_suggested_values_to_schema(schema, suggested),
         )

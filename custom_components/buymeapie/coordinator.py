@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import (
     BuyMeAPieApi,
@@ -19,10 +20,16 @@ from .api import (
     BuyMeAPieItem,
     BuyMeAPieList,
     BuyMeAPieNotFoundError,
+    BuyMeAPieUniqueItem,
 )
+from .categories import CategoryClassifier, Suggestion
 from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
+# The history (~250 KB for an old account) changes rarely; the web app reloads
+# it every 20 s, we do it far less often and patch it locally after own writes.
+UNIQUE_REFRESH = timedelta(minutes=15)
 
 type BuyMeAPieConfigEntry = ConfigEntry[BuyMeAPieCoordinator]
 
@@ -74,6 +81,9 @@ class BuyMeAPieCoordinator(DataUpdateCoordinator[dict[str, ListState]]):
         )
         self.api = api
         self._lists: dict[str, ListState] = {}
+        self.uniques: dict[str, BuyMeAPieUniqueItem] = {}
+        self._uniques_loaded: datetime | None = None
+        self._classifier: CategoryClassifier | None = None
 
     async def _async_update_data(self) -> dict[str, ListState]:
         """Fetch the latest data."""
@@ -84,6 +94,7 @@ class BuyMeAPieCoordinator(DataUpdateCoordinator[dict[str, ListState]]):
                 if list_id not in current_ids:
                     del self._lists[list_id]
             await asyncio.gather(*(self._async_refresh_list(entry) for entry in lists))
+            await self._async_refresh_uniques()
         except BuyMeAPieAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except BuyMeAPieError as err:
@@ -117,6 +128,67 @@ class BuyMeAPieCoordinator(DataUpdateCoordinator[dict[str, ListState]]):
             return
         for item in changed:
             state.apply(item)
+
+    async def _async_refresh_uniques(self, force: bool = False) -> None:
+        """Reload the item history (categories) if it is stale."""
+        now = dt_util.utcnow()
+        if (
+            not force
+            and self._uniques_loaded is not None
+            and now - self._uniques_loaded < UNIQUE_REFRESH
+        ):
+            return
+        uniques = await self.api.async_get_unique_items()
+        self.uniques = {u.title: u for u in uniques if not u.deleted}
+        self._uniques_loaded = now
+        self._classifier = None
+
+    @property
+    def classifier(self) -> CategoryClassifier:
+        """Classifier built from the current history."""
+        if self._classifier is None:
+            self._classifier = CategoryClassifier(
+                (u.title, u.group_id, u.use_count) for u in self.uniques.values()
+            )
+        return self._classifier
+
+    def group_of(self, item: BuyMeAPieItem) -> int:
+        """Effective category of an item, like the app: history first."""
+        unique = self.uniques.get(item.title)
+        if unique is not None:
+            return unique.group_id
+        return item.group_id
+
+    def suggest(self, title: str) -> Suggestion:
+        """Suggest a category for a title."""
+        return self.classifier.suggest(title.strip())
+
+    async def async_set_category(
+        self, title: str, group_id: int, *, count_use: bool = False
+    ) -> None:
+        """Store the category of a title in the history (like the app)."""
+        unique = self.uniques.get(title)
+        use_count = unique.use_count if unique else 0
+        if count_use:
+            use_count += 1
+        await self.api.async_set_unique_item(
+            title,
+            group_id=group_id,
+            use_count=use_count,
+            permanent=unique.permanent if unique else False,
+        )
+        now = dt_util.utcnow().timestamp()
+        self.uniques[title] = BuyMeAPieUniqueItem(
+            title=title,
+            group_id=group_id,
+            use_count=use_count,
+            permanent=unique.permanent if unique else False,
+            deleted=False,
+            last_use=now if count_use else (unique.last_use if unique else now),
+            updated_at=int(now),
+        )
+        self._classifier = None
+        self.async_set_updated_data(dict(self._lists))
 
     def async_apply_item(self, list_id: str, item: BuyMeAPieItem | None) -> None:
         """Apply the result of a write request immediately."""

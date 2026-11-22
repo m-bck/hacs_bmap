@@ -28,8 +28,20 @@ ITEMS = [
      "deleted": False, "group_id": 3, "created_at": 1700000100.0, "updated_at": 1700000100},
     {"id": "i2", "title": "Brot", "amount": "", "is_purchased": True,
      "deleted": False, "group_id": 4, "created_at": 1700000050.0, "updated_at": 1700000200},
+    {"id": "i4", "title": "Bananen", "amount": "", "is_purchased": False,
+     "deleted": False, "group_id": 6, "created_at": 1700000090.0, "updated_at": 1700000090},
     {"id": "i3", "title": "Rosinen", "amount": "", "is_purchased": False,
      "deleted": True, "group_id": 4, "created_at": 1700000010.0, "updated_at": 1700000300},
+]
+
+
+UNIQUES = [
+    {"title": "Milch", "group_id": 7, "use_count": 10, "permanent": False,
+     "deleted": False, "last_use": 1700000000.0, "updated_at": 1700000000},
+    {"title": "Brot", "group_id": 4, "use_count": 5, "permanent": True,
+     "deleted": False, "last_use": 1700000000.0, "updated_at": 1700000000},
+    {"title": "Quinoa bunt", "group_id": 4, "use_count": 3, "permanent": False,
+     "deleted": False, "last_use": 1700000000.0, "updated_at": 1700000000},
 ]
 
 
@@ -57,4 +69,5 @@ def mock_api(aioclient_mock):
     aioclient_mock.get(f"{API}/lists", json=LISTS)
     aioclient_mock.get(f"{API}/lists/L1/items", json=ITEMS)
     aioclient_mock.get(f"{API}/lists/L1/changed_items/1700000299", json=[])
+    aioclient_mock.get(f"{API}/unique_items", json=UNIQUES)
     return aioclient_mock
