@@ -152,14 +152,31 @@ def async_register_services(hass: HomeAssistant) -> None:
     )
 
 
+def _on_list(name: str) -> str:
+    """ "auf der Einkaufsliste", or "auf der Liste „Kuchen“" for other names."""
+    return f"auf der {name}" if name.casefold().endswith("liste") else f"auf der Liste „{name}“"
+
+
 def summarize(result: dict[str, Any]) -> str:
     """German one-sentence summary for voice responses."""
     added = len(result["added"]) + len(result["reactivated"])
     already = len(result["already_on_list"]) + len(result["updated"])
-    parts = [f"{added} Zutaten für {result['recipe']} stehen jetzt auf {result['list']}"]
-    if already:
-        parts.append(f"{already} standen schon drauf")
-    if result["skipped"]:
+    recipe, on_list = result["recipe"], _on_list(result["list"])
+    if added:
+        parts = [
+            (
+                f"{added} {'Zutat' if added == 1 else 'Zutaten'} für {recipe} "
+                f"{'steht' if added == 1 else 'stehen'} jetzt {on_list}"
+            )
+        ]
+        if already:
+            parts.append(f"{already} {'stand' if already == 1 else 'standen'} schon drauf")
+    elif already:
+        parts = [f"Alle Zutaten für {recipe} stehen schon {on_list}"]
+    else:
+        # Everything was left out: "ohne ..." would only repeat the request.
+        parts = [f"Für {recipe} musst du nichts einkaufen"]
+    if result["skipped"] and (added or already):
         parts.append("ohne " + ", ".join(i["item"] for i in result["skipped"]))
     text = ", ".join(parts) + "."
     if result["unknown_exclusions"]:

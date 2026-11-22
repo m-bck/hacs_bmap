@@ -14,12 +14,24 @@ INTENT_ADD_RECIPE = "BuyMeAPieAddRecipe"
 INTENT_GET_RECIPE = "BuyMeAPieGetRecipe"
 
 
+# Range lists can deliver the number as int, float or str, depending on the
+# Home Assistant / hassil version. Coerce instead of checking the type.
+_PORTIONS = probatio.All(probatio.Coerce(int), probatio.Range(min=1, max=100))
+
+
 def _portions(slots: dict) -> int | None:
-    value = slots.get("portions", {}).get("value")
-    try:
-        return int(value) if value not in (None, "") else None
-    except (TypeError, ValueError):
-        return None
+    return slots.get("portions", {}).get("value")
+
+
+def _error(intent_obj: intent.Intent, err: HomeAssistantError) -> intent.IntentResponse:
+    """Speak the error instead of raising.
+
+    The default agent replaces the text of an IntentHandleError with a generic
+    "unexpected error", so the user would never hear e.g. which recipes exist.
+    """
+    response = intent_obj.create_response()
+    response.async_set_error(intent.IntentResponseErrorCode.FAILED_TO_HANDLE, str(err))
+    return response
 
 
 class AddRecipeIntent(intent.IntentHandler):
@@ -29,7 +41,7 @@ class AddRecipeIntent(intent.IntentHandler):
     description = "Puts the ingredients of a stored recipe on the shopping list"
     slot_schema = {
         probatio.Required("recipe"): intent.non_empty_string,
-        probatio.Optional("portions"): probatio.Any(int, str),
+        probatio.Optional("portions"): _PORTIONS,
     }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
@@ -40,7 +52,7 @@ class AddRecipeIntent(intent.IntentHandler):
                 intent_obj.hass, slots["recipe"]["value"], portions=_portions(slots)
             )
         except HomeAssistantError as err:
-            raise intent.IntentHandleError(str(err)) from err
+            return _error(intent_obj, err)
         response = intent_obj.create_response()
         response.async_set_speech(summarize(result))
         return response
@@ -53,7 +65,7 @@ class GetRecipeIntent(intent.IntentHandler):
     description = "Tells which ingredients a stored recipe needs"
     slot_schema = {
         probatio.Required("recipe"): intent.non_empty_string,
-        probatio.Optional("portions"): probatio.Any(int, str),
+        probatio.Optional("portions"): _PORTIONS,
     }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
@@ -62,13 +74,14 @@ class GetRecipeIntent(intent.IntentHandler):
         try:
             details = get_recipe(intent_obj.hass, slots["recipe"]["value"], _portions(slots))
         except HomeAssistantError as err:
-            raise intent.IntentHandleError(str(err)) from err
+            return _error(intent_obj, err)
         items = ", ".join(
             f"{i['amount']} {i['item']}".strip() for i in details["ingredients"]
         )
         response = intent_obj.create_response()
         response.async_set_speech(
-            f"Für {details['recipe']} ({details['portions']} Portionen) brauchst du: {items}."
+            f"Für {details['recipe']} ({details['portions']} "
+            f"{'Portion' if details['portions'] == 1 else 'Portionen'}) brauchst du: {items}."
         )
         return response
 

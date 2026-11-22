@@ -57,6 +57,27 @@ _MEASURE_UNITS: Final = {
 }
 
 
+# Units that change between one and several ("1 Dose", "2 Dosen"). Units not
+# listed here (g, EL, Bund, Becher, Stück, ...) are the same in both forms.
+_PLURALS: Final = {
+    "dose": "dosen", "zehe": "zehen", "packung": "packungen", "scheibe": "scheiben",
+    "tasse": "tassen", "flasche": "flaschen", "stange": "stangen", "zweig": "zweige",
+    "tafel": "tafeln", "schale": "schalen", "glas": "gläser", "kopf": "köpfe",
+    "prise": "prisen",
+}
+_SINGULARS: Final = {plural: singular for singular, plural in _PLURALS.items()}
+_AT_MOST_ONE: Final = {"1", "¼", "½", "¾"}
+
+
+def _inflect(unit: str, number: str) -> str:
+    """Unit in singular or plural to match the number text, keeping the case."""
+    folded = unit.casefold()
+    target = (_SINGULARS if number in _AT_MOST_ONE else _PLURALS).get(folded)
+    if target is None:
+        return unit
+    return target[:1].upper() + target[1:] if unit[:1].isupper() else target
+
+
 def _to_fraction(text: str) -> Fraction:
     text = text.strip().replace(",", ".")
     if " " in text:  # "1 1/2"
@@ -106,7 +127,9 @@ class Ingredient:
             upper = _format_number(self.quantity_max * factor, self.unit, scaled)
             if upper != text:
                 text += "–" + upper
-        return f"{text} {self.unit}" if self.unit else text
+        if not self.unit:
+            return text
+        return f"{text} {_inflect(self.unit, text)}"
 
     def as_dict(self, factor: Fraction = Fraction(1)) -> dict[str, Any]:
         """Serialisable representation."""

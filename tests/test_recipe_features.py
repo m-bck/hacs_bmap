@@ -18,6 +18,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buymeapie import llm as bmap_llm
 from custom_components.buymeapie.const import CONF_LOGIN, CONF_PIN, CONF_RECIPE_LIST, DOMAIN
+from custom_components.buymeapie.services import summarize
 
 from .conftest import API, ITEMS, LISTS
 
@@ -242,10 +243,23 @@ async def test_intents(hass: HomeAssistant, mock_api, recipe_entry) -> None:
         hass, "test", "BuyMeAPieAddRecipe", {"recipe": {"value": "lasagne"}, "portions": {"value": "8"}}
     )
     assert response.speech["plain"]["speech"] == (
-        "4 Zutaten für Lasagne stehen jetzt auf Einkaufsliste, 1 standen schon drauf."
+        "4 Zutaten für Lasagne stehen jetzt auf der Einkaufsliste, 1 stand schon drauf."
     )
-    with pytest.raises(intent.IntentHandleError):
-        await intent.async_handle(hass, "test", "BuyMeAPieAddRecipe", {"recipe": {"value": "Pizza"}})
+    # Range lists may deliver the number as float.
+    response = await intent.async_handle(
+        hass, "test", "BuyMeAPieGetRecipe", {"recipe": {"value": "Lasagne"}, "portions": {"value": 2.0}}
+    )
+    assert response.speech["plain"]["speech"].startswith("Für Lasagne (2 Portionen)")
+    response = await intent.async_handle(
+        hass, "test", "BuyMeAPieGetRecipe", {"recipe": {"value": "Lasagne"}, "portions": {"value": 1}}
+    )
+    assert response.speech["plain"]["speech"].startswith("Für Lasagne (1 Portion) brauchst du")
+    # Unknown recipe: spoken error that names the stored recipes, no exception.
+    for intent_type in ("BuyMeAPieAddRecipe", "BuyMeAPieGetRecipe"):
+        response = await intent.async_handle(hass, "test", intent_type, {"recipe": {"value": "Pizza"}})
+        assert response.response_type == intent.IntentResponseType.ERROR
+        assert "Pizza" in response.speech["plain"]["speech"]
+        assert "Lasagne" in response.speech["plain"]["speech"]
 
 
 async def test_llm_tools(hass: HomeAssistant, mock_api, recipe_entry) -> None:
@@ -278,3 +292,37 @@ async def test_no_llm_tools_without_recipes(hass: HomeAssistant, mock_api, confi
     ctx = LLMContext(platform="test", context=None, language="de",
                      assistant="conversation", device_id=None)
     assert bmap_llm.async_get_tools(hass, ctx, LLM_API_ASSIST) is None
+
+
+def _result(added=0, already=0, skipped=(), unknown=(), name="Einkaufsliste") -> dict:
+    return {
+        "recipe": "Lasagne",
+        "list": name,
+        "added": [{"item": f"A{i}", "amount": ""} for i in range(added)],
+        "reactivated": [],
+        "updated": [],
+        "already_on_list": [{"item": f"B{i}", "amount": ""} for i in range(already)],
+        "skipped": [{"item": item, "amount": ""} for item in skipped],
+        "unknown_exclusions": list(unknown),
+    }
+
+
+@pytest.mark.parametrize(
+    ("result", "speech"),
+    [
+        (_result(1, 6), "1 Zutat für Lasagne steht jetzt auf der Einkaufsliste, 6 standen schon drauf."),
+        (_result(3, 1), "3 Zutaten für Lasagne stehen jetzt auf der Einkaufsliste, 1 stand schon drauf."),
+        (_result(2, name="Kuchen"), "2 Zutaten für Lasagne stehen jetzt auf der Liste „Kuchen“."),
+        (_result(0, 5), "Alle Zutaten für Lasagne stehen schon auf der Einkaufsliste."),
+        (_result(0, 0, ["Tomaten"]), "Für Lasagne musst du nichts einkaufen."),
+        (
+            _result(2, 0, ["stückige Tomaten"], ["Zimt"]),
+            (
+                "2 Zutaten für Lasagne stehen jetzt auf der Einkaufsliste, ohne stückige Tomaten."
+                " Nicht im Rezept: Zimt."
+            ),
+        ),
+    ],
+)
+def test_summarize(result, speech) -> None:
+    assert summarize(result) == speech

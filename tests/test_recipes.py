@@ -27,7 +27,7 @@ from custom_components.buymeapie.recipes import (
         ("Lasagneplatten", "Lasagneplatten", "", ""),
         ("Parmesan | 100 g", "Parmesan", "100 g", "150 g"),
         ("Basilikum | etwas", "Basilikum", "etwas", "etwas"),
-        ("- 1 Kopf Salat", "Salat", "1 Kopf", "2 Kopf"),
+        ("- 1 Kopf Salat", "Salat", "1 Kopf", "2 Köpfe"),
     ],
 )
 def test_parse_and_scale(line, title, amount, scaled) -> None:
@@ -37,6 +37,26 @@ def test_parse_and_scale(line, title, amount, scaled) -> None:
     assert ingredient.amount() == amount
     assert ingredient.amount(Fraction(6, 4)) == scaled
 
+
+
+@pytest.mark.parametrize(
+    ("line", "factor", "amount"),
+    [
+        ("2 Dosen stückige Tomaten", Fraction(2, 4), "1 Dose"),
+        ("2 Zehen Knoblauch", Fraction(1, 4), "1 Zehe"),
+        ("1 Dose Mais", Fraction(8, 4), "2 Dosen"),
+        ("1 dose Mais", Fraction(8, 4), "2 dosen"),  # case is kept
+        ("1 Glas Pesto", Fraction(3, 1), "3 Gläser"),
+        ("1 Prise Salz", Fraction(1, 2), "½ Prise"),
+        ("2 Prisen Salz", Fraction(3, 4), "1½ Prisen"),
+        ("1-2 Dosen Bohnen", Fraction(1), "1–2 Dosen"),  # ranges stay plural
+        ("2 Bund Petersilie", Fraction(1, 2), "1 Bund"),  # same in both forms
+    ],
+)
+def test_unit_follows_number(line, factor, amount) -> None:
+    ingredient = parse_ingredient(line)
+    assert ingredient is not None
+    assert ingredient.amount(factor) == amount
 
 def test_comments_and_blank_lines() -> None:
     assert parse_ingredients("# Teig\n\n200 g Mehl\n  \n# Belag\nKäse") == [
