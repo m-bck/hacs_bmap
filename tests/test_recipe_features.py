@@ -245,6 +245,18 @@ async def test_intents(hass: HomeAssistant, mock_api, recipe_entry) -> None:
     assert response.speech["plain"]["speech"] == (
         "4 Zutaten für Lasagne stehen jetzt auf der Einkaufsliste, 1 stand schon drauf."
     )
+    # The list as spoken ({name} slot of the example sentences).
+    response = await intent.async_handle(
+        hass, "test", "BuyMeAPieAddRecipe",
+        {"recipe": {"value": "Lasagne"}, "name": {"value": "einkaufsliste"}},
+    )
+    assert response.response_type != intent.IntentResponseType.ERROR
+    response = await intent.async_handle(
+        hass, "test", "BuyMeAPieAddRecipe",
+        {"recipe": {"value": "Lasagne"}, "name": {"value": "Baumarkt"}},
+    )
+    assert response.response_type == intent.IntentResponseType.ERROR
+    assert response.speech["plain"]["speech"] == "„Baumarkt“ ist keine Buy-Me-a-Pie-Liste"
     # Range lists may deliver the number as float.
     response = await intent.async_handle(
         hass, "test", "BuyMeAPieGetRecipe", {"recipe": {"value": "Lasagne"}, "portions": {"value": 2.0}}

@@ -205,8 +205,22 @@ response_variable: rezept
   Damit funktionieren freie Formulierungen wie „Was brauche ich für Lasagne?“, „Setz Lasagne für 6 auf die Liste“ oder
   „Lasagne, aber Tomaten hab ich noch“.
 - **Ohne KI** (Standard-Assistent): [examples/custom_sentences/de/buymeapie.yaml](examples/custom_sentences/de/buymeapie.yaml)
-  nach `<config>/custom_sentences/de/` kopieren und Home Assistant neu starten. Danach funktionieren Sätze wie
-  „Setz Lasagne auf die Einkaufsliste“, „Wir kochen Chili für 6 Personen“ oder „Was brauche ich für Lasagne?“.
+  nach `<config>/custom_sentences/de/` kopieren und Home Assistant neu starten (oder `conversation.reload` ausführen).
+  Danach funktionieren Sätze wie:
+  - „Setz die Zutaten für Lasagne auf die Einkaufsliste“, „Pack das Rezept Lasagne für 6 Personen auf die Brötchenliste“
+  - „Kannst du die Zutaten für Lasagne auf die Einkaufsliste setzen?“
+  - „Wir kochen Chili für 6 Personen“, „Rezept Lasagne einkaufen“
+  - „Welche Zutaten hat Lasagne?“, „Was brauche ich für Lasagne für 2 Personen?“
+
+  Jeder Satz braucht ein Schlüsselwort („Zutaten“, „Rezept“) oder eine Personenzahl. Der Rezeptname ist ein
+  Platzhalter, und eigene Sätze haben Vorrang vor den eingebauten. Ohne Schlüsselwort würde
+  „Setz Milch auf die Einkaufsliste“ als Rezept „Milch“ verstanden. Kürzere Fragen wie „Was brauche ich für Lasagne?“
+  beantwortet ein KI-Assistent über die Werkzeuge.
+
+> **Tipp:** [examples/custom_sentences/de/einkaufsliste.yaml](examples/custom_sentences/de/einkaufsliste.yaml)
+> verbessert das Hinzufügen einzelner Artikel per Sprache, für alle To-do-Listen. Die eingebaute Vorlage für
+> „Milch auf die Einkaufsliste“ macht aus „Schreibst du Skyr auf die Einkaufsliste?“ den Artikel „Schreibst du Skyr“.
+> Mit der Datei werden Fragen und Bitten wie „Kannst du bitte Milch auf die Einkaufsliste setzen?“ richtig zerlegt.
 
 ## Beispiele
 

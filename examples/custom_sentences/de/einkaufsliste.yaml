@@ -1,0 +1,26 @@
+# Fragen und höfliche Bitten zum Hinzufügen (Standard-Assistent, ohne KI).
+# Diese Datei nach <config>/custom_sentences/de/einkaufsliste.yaml kopieren und
+# Home Assistant neu starten (oder die Aktion conversation.reload ausführen).
+#
+# Hintergrund: Die eingebaute Vorlage für Kurzformen wie „Milch auf die
+# Einkaufsliste“ lautet „{item} auf die {name} [schreiben]“. Ihr Platzhalter
+# schluckt auch Fragewörter. Aus „Schreibst du Skyr auf die Einkaufsliste?“
+# wird so der Artikel „Schreibst du Skyr“. Eigene Sätze haben Vorrang, also
+# werden die Frageformen hier ausdrücklich abgedeckt.
+# Das gilt für jede To-do-Liste, nicht nur für Buy Me a Pie.
+language: de
+intents:
+  HassListAddItem:
+    data:
+      - sentences:
+          - "(setzt|schreibst|packst|nimmst) du [bitte|mal|noch] {artikel:item} (auf|in) [(meine|unsere|die) ]{name}[([ ]|s[ ]|-)Liste]"
+          - "(kannst|könntest|würdest) du [bitte|mal|noch] {artikel:item} (auf|in) [(meine|unsere|die) ]{name}[([ ]|s[ ]|-)Liste] (setzen|schreiben|packen|nehmen)"
+          - "(kannst|könntest|würdest) du [bitte|mal|noch] {artikel:item} [(zu|zur|zum) ][(meiner|unserer|der) ]{name}[([ ]|s[ ]|-)Liste] hinzufügen"
+          - "(setz|setze|schreib|schreibe|pack|packe|nimm) [bitte|mal|noch] {artikel:item} (auf|in) [(meine|unsere|die) ]{name}[([ ]|s[ ]|-)Liste]"
+        requires_context:
+          domain: todo
+        # Antworttext der eingebauten Sätze („… hinzugefügt“)
+        response: item_added
+lists:
+  artikel:
+    wildcard: true

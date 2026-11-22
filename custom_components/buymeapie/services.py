@@ -79,6 +79,19 @@ def resolve_todo_list(hass: HomeAssistant, entity_id: str) -> tuple[BuyMeAPieCoo
     raise ServiceValidationError(f"{entity_id} ist nicht geladen")
 
 
+def find_todo_list_by_name(hass: HomeAssistant, name: str) -> str:
+    """Entity id of the Buy Me a Pie list with this name (as spoken)."""
+    wanted = name.strip().casefold()
+    for entry in er.async_get(hass).entities.values():
+        if entry.platform != DOMAIN or entry.domain != "todo":
+            continue
+        state = hass.states.get(entry.entity_id)
+        names = {entry.name, entry.original_name, state.name if state else None}
+        if wanted in {n.strip().casefold() for n in names if n}:
+            return entry.entity_id
+    raise ServiceValidationError(f"„{name}“ ist keine Buy-Me-a-Pie-Liste")
+
+
 def resolve_recipe(
     hass: HomeAssistant, query: str, coordinator: BuyMeAPieCoordinator | None = None
 ) -> tuple[BuyMeAPieCoordinator, Recipe]:

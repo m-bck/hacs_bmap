@@ -1,21 +1,39 @@
 # Sprachbefehle für Rezepte (Standard-Assistent von Home Assistant, ohne KI).
 # Diese Datei nach <config>/custom_sentences/de/buymeapie.yaml kopieren und
-# Home Assistant neu starten.
+# Home Assistant neu starten (oder die Aktion conversation.reload ausführen).
+#
+# Der Rezeptname ist ein Platzhalter für beliebigen Text. Eigene Sätze haben
+# Vorrang vor den eingebauten. Jeder Satz braucht deshalb ein Schlüsselwort
+# („Rezept“, „Zutaten“) oder eine Personenzahl. Sonst würde z. B.
+# „Setz Milch auf die Einkaufsliste“ als Rezept „Milch“ verstanden statt als
+# normaler Artikel. Freiere Formulierungen wie „Was brauche ich für Lasagne?“
+# übernimmt ein KI-Assistent über die Werkzeuge der Integration.
+#
+# {name} ist der Name einer To-do-Liste („Einkaufsliste“, „Brötchenliste“).
+# Home Assistant bevorzugt Treffer mit erkanntem Listennamen. Ohne {name}
+# würde „Setz die Zutaten für Lasagne auf die Einkaufsliste“ als Artikel
+# „die Zutaten für Lasagne“ verstanden.
 language: de
 intents:
   BuyMeAPieAddRecipe:
     data:
       - sentences:
-          - "(setz|setze|pack|packe|schreib|schreibe) [die Zutaten (für|von)] {recipe} auf [die] Einkaufsliste"
-          - "(setz|setze|pack|packe|schreib|schreibe) [die Zutaten (für|von)] {recipe} für {portions} (Personen|Portionen) auf [die] Einkaufsliste"
-          - "wir (kochen|machen|essen) {recipe} [für {portions} (Personen|Portionen)]"
-          - "einkaufen für {recipe} [für {portions} (Personen|Portionen)]"
+          - "(setz|setze|pack|packe|schreib|schreibe) [bitte] (die Zutaten (für|von)|das Rezept [für]) {recipe} [für {portions} (Personen|Portionen)] (auf|in) [(meine|unsere|die) ]{name}[([ ]|s[ ]|-)Liste]"
+          - "(setzt|packst|schreibst) du [bitte] (die Zutaten (für|von)|das Rezept [für]) {recipe} [für {portions} (Personen|Portionen)] (auf|in) [(meine|unsere|die) ]{name}[([ ]|s[ ]|-)Liste]"
+          - "(kannst|könntest|würdest) du [bitte] (die Zutaten (für|von)|das Rezept [für]) {recipe} [für {portions} (Personen|Portionen)] (auf|in) [(meine|unsere|die) ]{name}[([ ]|s[ ]|-)Liste] (setzen|packen|schreiben)"
+        requires_context:
+          domain: todo
+      # Ohne Listenname: Die Zutaten kommen auf die „Liste für Rezepte“ aus den Optionen.
+      - sentences:
+          - "(Zutaten|Rezept) {recipe} [für {portions} (Personen|Portionen)] einkaufen"
+          - "wir (kochen|machen|essen) {recipe} für {portions} (Personen|Portionen)"
   BuyMeAPieGetRecipe:
     data:
       - sentences:
-          - "was brauche ich für {recipe} [für {portions} (Personen|Portionen)]"
-          - "was braucht man für {recipe}"
-          - "welche Zutaten (braucht|hat) {recipe}"
+          - "welche Zutaten (braucht|hat) [das Rezept] {recipe} [für {portions} (Personen|Portionen)]"
+          - "was sind die Zutaten (für|von) {recipe} [für {portions} (Personen|Portionen)]"
+          - "was (brauche ich|braucht man) für das Rezept {recipe} [für {portions} (Personen|Portionen)]"
+          - "was (brauche ich|braucht man) für {recipe} für {portions} (Personen|Portionen)"
 lists:
   recipe:
     wildcard: true

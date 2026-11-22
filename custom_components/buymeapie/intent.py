@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import intent
 
-from .services import async_add_recipe, get_recipe, summarize
+from .services import async_add_recipe, find_todo_list_by_name, get_recipe, summarize
 
 INTENT_ADD_RECIPE = "BuyMeAPieAddRecipe"
 INTENT_GET_RECIPE = "BuyMeAPieGetRecipe"
@@ -42,14 +42,25 @@ class AddRecipeIntent(intent.IntentHandler):
     slot_schema = {
         probatio.Required("recipe"): intent.non_empty_string,
         probatio.Optional("portions"): _PORTIONS,
+        # The list as spoken ("auf die Brötchenliste"). The example sentences
+        # use the {name} slot of to-do lists: Home Assistant prefers matches
+        # with a name, so without it "Setz die Zutaten für Lasagne auf die
+        # Einkaufsliste" would be taken as the item "die Zutaten für Lasagne".
+        probatio.Optional("name"): intent.non_empty_string,
     }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         """Handle the intent."""
         slots = self.async_validate_slots(intent_obj.slots)
         try:
+            todo_list = None
+            if "name" in slots:
+                todo_list = find_todo_list_by_name(intent_obj.hass, slots["name"]["value"])
             result = await async_add_recipe(
-                intent_obj.hass, slots["recipe"]["value"], portions=_portions(slots)
+                intent_obj.hass,
+                slots["recipe"]["value"],
+                portions=_portions(slots),
+                todo_list=todo_list,
             )
         except HomeAssistantError as err:
             return _error(intent_obj, err)
