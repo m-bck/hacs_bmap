@@ -26,3 +26,41 @@ suggest_category:
       example: Hafermilch
       selector:
         text:
+
+add_recipe:
+  fields:
+    recipe:
+      required: true
+      example: Lasagne
+      selector:
+        text:
+    portions:
+      example: 6
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    without:
+      example: "Tomaten, Parmesan"
+      selector:
+        text:
+          multiple: true
+    todo_list:
+      selector:
+        entity:
+          integration: buymeapie
+          domain: todo
+
+get_recipe:
+  fields:
+    recipe:
+      example: Lasagne
+      selector:
+        text:
+    portions:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box

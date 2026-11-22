@@ -15,7 +15,9 @@ from homeassistant.components.todo import (
 )
 from homeassistant.core import HomeAssistant, ServiceResponse, SupportsResponse, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv, device_registry as dr, entity_platform
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -32,10 +34,8 @@ from .const import (
     ATTR_CATEGORY,
     ATTR_ITEM,
     CATEGORY_NAME_PREFIX,
-    CONF_AUTO_CATEGORIZE,
     CONF_CATEGORY_IN_DESCRIPTION,
     CONF_SHOW_COMPLETED,
-    DEFAULT_AUTO_CATEGORIZE,
     DEFAULT_CATEGORY_IN_DESCRIPTION,
     DEFAULT_SHOW_COMPLETED,
     DOMAIN,
@@ -177,17 +177,7 @@ class BuyMeAPieTodoList(CoordinatorEntity[BuyMeAPieCoordinator], TodoListEntity)
         )
 
     def _find(self, value: str) -> BuyMeAPieItem | None:
-        """Find an item of this list by id or (case-insensitive) title."""
-        state = self._state
-        if state is None:
-            return None
-        if value in state.items:
-            return state.items[value]
-        wanted = value.strip().casefold()
-        matches = [item for item in state.items.values() if item.title.strip().casefold() == wanted]
-        # Prefer the open entry if the title exists twice.
-        matches.sort(key=lambda item: item.is_purchased)
-        return matches[0] if matches else None
+        return self.coordinator.find_item(self._list_id, value)
 
     # ------------------------------------------------------------- entity API
 
@@ -267,46 +257,16 @@ class BuyMeAPieTodoList(CoordinatorEntity[BuyMeAPieCoordinator], TodoListEntity)
         if not title:
             raise ServiceValidationError("Ein Artikel braucht einen Namen")
         amount = self._amount_from_description(item.description) if item.description else None
-        purchased = item.status == TodoItemStatus.COMPLETED
-        coordinator = self.coordinator
-        api = coordinator.api
-        existing = self._find(title)
         try:
-            if existing is not None:
-                result = await api.async_update_item(
-                    self._list_id,
-                    existing.id,
-                    amount=amount if amount is not None and amount != existing.amount else None,
-                    is_purchased=purchased if purchased != existing.is_purchased else None,
-                )
-                coordinator.async_apply_item(self._list_id, result)
-            else:
-                result = await api.async_add_item(self._list_id, title, amount or "", purchased)
-                coordinator.async_apply_item(self._list_id, result)
-                await self._async_record_new_title(result.title if result else title)
+            await self.coordinator.async_put_on_list(
+                self._list_id,
+                title,
+                amount,
+                purchased=item.status == TodoItemStatus.COMPLETED,
+            )
         except BuyMeAPieError as err:
             raise HomeAssistantError(f"Artikel konnte nicht angelegt werden: {err}") from err
-        await coordinator.async_request_refresh()
-
-    async def _async_record_new_title(self, title: str) -> None:
-        coordinator = self.coordinator
-        unique = coordinator.uniques.get(title)
-        if unique is not None:
-            group_id = unique.group_id
-        elif self._option(CONF_AUTO_CATEGORIZE, DEFAULT_AUTO_CATEGORIZE):
-            suggestion = coordinator.suggest(title)
-            group_id = suggestion.group_id
-            _LOGGER.debug(
-                "Categorised %s as %s (%s: %s)",
-                title, group_id, suggestion.source, suggestion.reason,
-            )
-        else:
-            group_id = 0
-        try:
-            await coordinator.async_set_category(title, group_id, count_use=True)
-        except BuyMeAPieError as err:
-            # The item itself was added; only the category is missing.
-            _LOGGER.warning("Could not store category for %s: %s", title, err)
+        await self.coordinator.async_request_refresh()
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Rename an item, change its amount or (un)check it."""

@@ -1,0 +1,25 @@
+# Sprachbefehle für Rezepte (Standard-Assistent von Home Assistant, ohne KI).
+# Diese Datei nach <config>/custom_sentences/de/buymeapie.yaml kopieren und
+# Home Assistant neu starten.
+language: de
+intents:
+  BuyMeAPieAddRecipe:
+    data:
+      - sentences:
+          - "(setz|setze|pack|packe|schreib|schreibe) [die Zutaten (für|von)] {recipe} auf [die] Einkaufsliste"
+          - "(setz|setze|pack|packe|schreib|schreibe) [die Zutaten (für|von)] {recipe} für {portions} (Personen|Portionen) auf [die] Einkaufsliste"
+          - "wir (kochen|machen|essen) {recipe} [für {portions} (Personen|Portionen)]"
+          - "einkaufen für {recipe} [für {portions} (Personen|Portionen)]"
+  BuyMeAPieGetRecipe:
+    data:
+      - sentences:
+          - "was brauche ich für {recipe} [für {portions} (Personen|Portionen)]"
+          - "was braucht man für {recipe}"
+          - "welche Zutaten (braucht|hat) {recipe}"
+lists:
+  recipe:
+    wildcard: true
+  portions:
+    range:
+      from: 1
+      to: 30

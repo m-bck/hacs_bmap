@@ -192,21 +192,22 @@ def tokenize(text: str) -> list[str]:
     ]
 
 
-def _stem(word: str) -> str:
+def stem(word: str) -> str:
+    """Very light German stemming (plural endings)."""
     for suffix in ("nen", "en", "er", "n", "e", "s"):
         if word.endswith(suffix) and len(word) - len(suffix) >= 4:
             return word[: -len(suffix)]
     return word
 
 
-def _keyword_match(words: list[str], phrase: str, stem: str) -> bool:
-    exact = stem.startswith("=")
-    stem = stem.lstrip("=")
-    if " " in stem:
-        return stem in phrase
+def _keyword_match(words: list[str], phrase: str, keyword: str) -> bool:
+    exact = keyword.startswith("=")
+    keyword = keyword.lstrip("=")
+    if " " in keyword:
+        return keyword in phrase
     for word in words:
         for suffix in _PLURAL_SUFFIXES:
-            candidate = stem + suffix
+            candidate = keyword + suffix
             if word == candidate or (not exact and word.endswith(candidate)):
                 return True
     return False
@@ -222,11 +223,11 @@ def keyword_category(title: str) -> tuple[int, str] | None:
     if "tk" in words or any("tiefkuhl" in word or "tiefgekuhlt" in word for word in words):
         return 1, "tk"
     best: tuple[int, str] | None = None
-    for group_id, stems in KEYWORDS.items():
-        for stem in stems:
-            if not _keyword_match(words, phrase, stem):
+    for group_id, keywords in KEYWORDS.items():
+        for keyword in keywords:
+            if not _keyword_match(words, phrase, keyword):
                 continue
-            plain = stem.lstrip("=")
+            plain = keyword.lstrip("=")
             if best is None or len(plain) > len(best[1]):
                 best = (group_id, plain)
     return best
@@ -255,7 +256,7 @@ class CategoryClassifier:
             if group_id == 0:
                 # Colour 0 is also "not categorised yet"; do not learn from it.
                 continue
-            stems = tuple(_stem(word) for word in tokenize(title))
+            stems = tuple(stem(word) for word in tokenize(title))
             if stems:
                 weight = 1.0 + math.log1p(max(use_count, 0))
                 self._entries.append((stems, group_id, weight, title))
@@ -267,7 +268,7 @@ class CategoryClassifier:
         return self._exact_folded.get(normalize(title))
 
     def _similar(self, title: str) -> tuple[int, float, float, str] | None:
-        stems = [_stem(word) for word in tokenize(title)]
+        stems = [stem(word) for word in tokenize(title)]
         if not stems:
             return None
         scores: dict[int, float] = {}
@@ -275,13 +276,13 @@ class CategoryClassifier:
         frozen = "tk" in stems
         for entry_stems, group_id, weight, example in self._entries:
             match = 0.0
-            for stem in stems:
+            for word in stems:
                 for other in entry_stems:
-                    if stem == other:
+                    if word == other:
                         value = 1.0
-                    elif len(other) >= 4 and stem.endswith(other):
+                    elif len(other) >= 4 and word.endswith(other):
                         value = 0.8  # new compound ends with a known item
-                    elif len(stem) >= 4 and other.endswith(stem):
+                    elif len(word) >= 4 and other.endswith(word):
                         value = 0.4  # known compound ends with the new word
                     else:
                         continue

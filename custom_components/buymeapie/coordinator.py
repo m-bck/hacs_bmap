@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from enum import StrEnum
 import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -23,7 +25,15 @@ from .api import (
     BuyMeAPieUniqueItem,
 )
 from .categories import CategoryClassifier, Suggestion
-from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_AUTO_CATEGORIZE,
+    CONF_RECIPE_LIST,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_AUTO_CATEGORIZE,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
+from .recipes import SUBENTRY_TYPE_RECIPE, Recipe, find_recipe, split_exclusions
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +42,15 @@ _LOGGER = logging.getLogger(__name__)
 UNIQUE_REFRESH = timedelta(minutes=15)
 
 type BuyMeAPieConfigEntry = ConfigEntry[BuyMeAPieCoordinator]
+
+
+class AddResult(StrEnum):
+    """What happened when an item was put on a list."""
+
+    ADDED = "added"
+    REACTIVATED = "reactivated"
+    UPDATED = "updated"
+    ALREADY_ON_LIST = "already_on_list"
 
 
 @dataclass(slots=True)
@@ -206,3 +225,147 @@ class BuyMeAPieCoordinator(DataUpdateCoordinator[dict[str, ListState]]):
         for item_id in item_ids:
             state.items.pop(item_id, None)
         self.async_set_updated_data(dict(self._lists))
+
+    # ------------------------------------------------------------ writing
+
+    def find_item(self, list_id: str, value: str) -> BuyMeAPieItem | None:
+        """Find an item of a list by id or (case-insensitive) title."""
+        state = self._lists.get(list_id)
+        if state is None:
+            return None
+        if value in state.items:
+            return state.items[value]
+        wanted = value.strip().casefold()
+        matches = [i for i in state.items.values() if i.title.strip().casefold() == wanted]
+        matches.sort(key=lambda item: item.is_purchased)  # prefer the open one
+        return matches[0] if matches else None
+
+    async def async_put_on_list(
+        self,
+        list_id: str,
+        title: str,
+        amount: str | None = None,
+        *,
+        purchased: bool = False,
+        replace_amount: bool = True,
+    ) -> AddResult:
+        """Put an item on a list without creating duplicates (like the app).
+
+        - not on the list: add it and record its category in the history
+        - purchased: un-check it (and set the amount)
+        - already open: keep it; the amount is replaced only if
+          ``replace_amount`` is set, otherwise only filled in when empty
+        """
+        if list_id not in self._lists:
+            raise BuyMeAPieNotFoundError(f"List {list_id} not found")
+        existing = self.find_item(list_id, title)
+        if existing is None:
+            result = await self.api.async_add_item(list_id, title, amount or "", purchased)
+            self.async_apply_item(list_id, result)
+            await self._async_record_new_title(result.title if result else title)
+            return AddResult.ADDED
+
+        new_amount: str | None = None
+        if amount is not None and amount != existing.amount:
+            if replace_amount or existing.is_purchased or not existing.amount:
+                new_amount = amount
+        new_purchased = purchased if purchased != existing.is_purchased else None
+        if new_amount is None and new_purchased is None:
+            return AddResult.ALREADY_ON_LIST
+        result = await self.api.async_update_item(
+            list_id, existing.id, amount=new_amount, is_purchased=new_purchased
+        )
+        self.async_apply_item(list_id, result)
+        if existing.is_purchased and not purchased:
+            return AddResult.REACTIVATED
+        return AddResult.UPDATED
+
+    async def _async_record_new_title(self, title: str) -> None:
+        """Store the category of a newly added title in the history."""
+        unique = self.uniques.get(title)
+        if unique is not None:
+            group_id = unique.group_id
+        elif self.config_entry.options.get(CONF_AUTO_CATEGORIZE, DEFAULT_AUTO_CATEGORIZE):
+            suggestion = self.suggest(title)
+            group_id = suggestion.group_id
+            _LOGGER.debug(
+                "Categorised %s as %s (%s: %s)",
+                title, group_id, suggestion.source, suggestion.reason,
+            )
+        else:
+            group_id = 0
+        try:
+            await self.async_set_category(title, group_id, count_use=True)
+        except BuyMeAPieError as err:
+            # The item itself was added; only the category is missing.
+            _LOGGER.warning("Could not store category for %s: %s", title, err)
+
+    # ------------------------------------------------------------ recipes
+
+    @property
+    def recipes(self) -> list[Recipe]:
+        """Recipes stored as subentries, sorted by name."""
+        recipes = [
+            Recipe.from_data(sub_id, sub.data)
+            for sub_id, sub in self.config_entry.subentries.items()
+            if sub.subentry_type == SUBENTRY_TYPE_RECIPE
+        ]
+        return sorted(recipes, key=lambda recipe: recipe.name.casefold())
+
+    def find_recipe(self, query: str) -> Recipe | None:
+        """Find a recipe by name or alias."""
+        return find_recipe(self.recipes, query)
+
+    @property
+    def recipe_list_id(self) -> str | None:
+        """List recipes go to: the configured one, else the first list."""
+        configured = self.config_entry.options.get(CONF_RECIPE_LIST)
+        if configured in self._lists:
+            return configured
+        return next(iter(self._lists), None)
+
+    def list_name(self, list_id: str) -> str:
+        """Display name of a list."""
+        state = self._lists.get(list_id)
+        return state.info.name if state else list_id
+
+    def recipe_details(self, recipe: Recipe, portions: int | None = None) -> dict[str, Any]:
+        """Ingredients of a recipe scaled to the given portions."""
+        factor = recipe.factor(portions)
+        return {
+            "recipe": recipe.name,
+            "portions": portions or recipe.portions,
+            "ingredients": [ingredient.as_dict(factor) for ingredient in recipe.ingredients],
+        }
+
+    async def async_add_recipe(
+        self,
+        recipe: Recipe,
+        *,
+        list_id: str | None = None,
+        portions: int | None = None,
+        without: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Put the ingredients of a recipe on a list, merging duplicates."""
+        list_id = list_id or self.recipe_list_id
+        if list_id is None or list_id not in self._lists:
+            raise BuyMeAPieNotFoundError("No shopping list available")
+        factor = recipe.factor(portions)
+        kept, excluded, unmatched = split_exclusions(recipe.ingredients, without or [])
+        outcome: dict[str, list[dict[str, str]]] = {result.value: [] for result in AddResult}
+        for ingredient in kept:
+            amount = ingredient.amount(factor) or None
+            result = await self.async_put_on_list(
+                list_id, ingredient.title, amount, replace_amount=False
+            )
+            outcome[result.value].append({"item": ingredient.title, "amount": amount or ""})
+        self.async_set_updated_data(dict(self._lists))
+        await self.async_request_refresh()
+        return {
+            "recipe": recipe.name,
+            "list": self.list_name(list_id),
+            "portions": portions or recipe.portions,
+            **outcome,
+            "skipped": [ingredient.as_dict(factor) for ingredient in excluded],
+            "unknown_exclusions": unmatched,
+        }

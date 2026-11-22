@@ -39,13 +39,15 @@
           "scan_interval": "Polling interval",
           "show_completed": "Show purchased items",
           "auto_categorize": "Categorise new items automatically",
-          "category_in_description": "Show category in the description"
+          "category_in_description": "Show category in the description",
+          "recipe_list": "List for recipes"
         },
         "data_description": {
           "scan_interval": "How often to check for changes (at least 20 seconds).",
           "show_completed": "Shows purchased items as completed. Note: \"Remove completed\" will then also delete them in Buy Me a Pie.",
           "auto_categorize": "Items newly added from Home Assistant without a colour get a matching category (keywords and your own history).",
-          "category_in_description": "Shows e.g. “2 · 🥦 Obst & Gemüse” below the item. The amount stays editable."
+          "category_in_description": "Shows e.g. “2 · 🥦 Obst & Gemüse” below the item. The amount stays editable.",
+          "recipe_list": "Recipes from buttons, NFC tags and voice commands go to this list. Default: the first list."
         }
       },
       "categories": {
@@ -87,6 +89,92 @@
           "name": "Item",
           "description": "Name of the item."
         }
+      }
+    },
+    "add_recipe": {
+      "name": "Add recipe to shopping list",
+      "description": "Puts the ingredients of a stored recipe on the shopping list. Items already open on the list are not added twice.",
+      "fields": {
+        "recipe": {
+          "name": "Recipe",
+          "description": "Name or alias of the recipe."
+        },
+        "portions": {
+          "name": "Portions",
+          "description": "Scales the amounts to this number of portions."
+        },
+        "without": {
+          "name": "Without",
+          "description": "Ingredients that should not be added, e.g. because they are at home."
+        },
+        "todo_list": {
+          "name": "List",
+          "description": "Target list; default is the recipe list from the options."
+        }
+      }
+    },
+    "get_recipe": {
+      "name": "Get recipe",
+      "description": "Returns the ingredients of a recipe, or all recipes when none is given.",
+      "fields": {
+        "recipe": {
+          "name": "Recipe",
+          "description": "Name of the recipe."
+        },
+        "portions": {
+          "name": "Portions",
+          "description": "Scales the amounts."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "recipe": {
+      "entry_type": "Recipe",
+      "initiate_flow": {
+        "user": "Add recipe",
+        "reconfigure": "Edit recipe"
+      },
+      "step": {
+        "user": {
+          "title": "Add recipe",
+          "description": "One ingredient per line, amount first, e.g. “500 g Hackfleisch”, “2 Dosen stückige Tomaten”, “Lasagneplatten”. Alternatively “Parmesan | 100 g”. Lines starting with # are ignored.",
+          "data": {
+            "name": "Name",
+            "aliases": "Other names",
+            "portions": "Portions",
+            "ingredients": "Ingredients"
+          },
+          "data_description": {
+            "aliases": "Comma separated, so voice commands find the recipe.",
+            "portions": "Number of portions the amounts are for. They can be scaled when shopping."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit recipe",
+          "description": "One ingredient per line, amount first.",
+          "data": {
+            "name": "Name",
+            "aliases": "Other names",
+            "portions": "Portions",
+            "ingredients": "Ingredients"
+          }
+        }
+      },
+      "error": {
+        "name_missing": "Please enter a name.",
+        "name_exists": "A recipe with this name already exists.",
+        "no_ingredients": "Please enter at least one ingredient."
+      },
+      "abort": {
+        "reconfigure_successful": "The recipe was saved."
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "add_recipe": {
+        "name": "Add to shopping list"
       }
     }
   }

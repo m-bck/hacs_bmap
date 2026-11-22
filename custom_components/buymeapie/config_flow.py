@@ -9,9 +9,13 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
-    OptionsFlowWithReload,
+    ConfigSubentryFlow,
+    OptionsFlow,
+    SubentryFlowResult,
 )
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -19,19 +23,33 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
 )
 
 from .api import BuyMeAPieApi, BuyMeAPieAuthError, BuyMeAPieError
-from .categories import DEFAULT_CATEGORIES
+from .categories import DEFAULT_CATEGORIES, normalize
+from .recipes import (
+    CONF_RECIPE_ALIASES,
+    CONF_RECIPE_INGREDIENTS,
+    CONF_RECIPE_NAME,
+    CONF_RECIPE_PORTIONS,
+    DEFAULT_PORTIONS,
+    SUBENTRY_TYPE_RECIPE,
+    parse_ingredients,
+)
 from .const import (
     CATEGORY_NAME_PREFIX,
     CONF_AUTO_CATEGORIZE,
     CONF_CATEGORY_IN_DESCRIPTION,
     CONF_LOGIN,
     CONF_PIN,
+    CONF_RECIPE_LIST,
     CONF_SCAN_INTERVAL,
     CONF_SHOW_COMPLETED,
     DEFAULT_AUTO_CATEGORIZE,
@@ -124,6 +142,14 @@ class BuyMeAPieConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Recipes are stored as subentries."""
+        return {SUBENTRY_TYPE_RECIPE: RecipeSubentryFlow}
+
     @staticmethod
     @callback
     def async_get_options_flow(
@@ -133,7 +159,7 @@ class BuyMeAPieConfigFlow(ConfigFlow, domain=DOMAIN):
         return BuyMeAPieOptionsFlow()
 
 
-class BuyMeAPieOptionsFlow(OptionsFlowWithReload):
+class BuyMeAPieOptionsFlow(OptionsFlow):
     """Options: polling, display and the names of the colour groups."""
 
     def __init__(self) -> None:
@@ -173,6 +199,14 @@ class BuyMeAPieOptionsFlow(OptionsFlowWithReload):
                 ): bool,
             }
         )
+        if lists := _list_options(self.config_entry):
+            schema = schema.extend(
+                {
+                    vol.Optional(CONF_RECIPE_LIST): SelectSelector(
+                        SelectSelectorConfig(options=lists, mode=SelectSelectorMode.DROPDOWN)
+                    )
+                }
+            )
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(
@@ -211,4 +245,90 @@ class BuyMeAPieOptionsFlow(OptionsFlowWithReload):
         return self.async_show_form(
             step_id="categories",
             data_schema=self.add_suggested_values_to_schema(schema, suggested),
+        )
+
+
+def _list_options(entry: ConfigEntry) -> list[SelectOptionDict]:
+    """Shopping lists of a loaded entry, for selectors."""
+    if entry.state is not ConfigEntryState.LOADED:
+        return []
+    coordinator = entry.runtime_data
+    return [
+        SelectOptionDict(value=list_id, label=state.info.name)
+        for list_id, state in (coordinator.data or {}).items()
+    ]
+
+
+RECIPE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_RECIPE_NAME): TextSelector(),
+        vol.Optional(CONF_RECIPE_ALIASES): TextSelector(),
+        vol.Required(CONF_RECIPE_PORTIONS, default=DEFAULT_PORTIONS): NumberSelector(
+            NumberSelectorConfig(min=1, max=50, step=1, mode=NumberSelectorMode.BOX)
+        ),
+        vol.Required(CONF_RECIPE_INGREDIENTS): TextSelector(
+            TextSelectorConfig(multiline=True)
+        ),
+    }
+)
+
+
+class RecipeSubentryFlow(ConfigSubentryFlow):
+    """Add or edit a recipe."""
+
+    def _validate(
+        self, user_input: dict[str, Any], current_id: str | None = None
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        data = {
+            CONF_RECIPE_NAME: user_input[CONF_RECIPE_NAME].strip(),
+            CONF_RECIPE_ALIASES: (user_input.get(CONF_RECIPE_ALIASES) or "").strip(),
+            CONF_RECIPE_PORTIONS: int(user_input[CONF_RECIPE_PORTIONS]),
+            CONF_RECIPE_INGREDIENTS: user_input[CONF_RECIPE_INGREDIENTS].strip(),
+        }
+        errors: dict[str, str] = {}
+        if not data[CONF_RECIPE_NAME]:
+            errors[CONF_RECIPE_NAME] = "name_missing"
+        elif any(
+            normalize(sub.title) == normalize(data[CONF_RECIPE_NAME])
+            for sub_id, sub in self._get_entry().subentries.items()
+            if sub.subentry_type == SUBENTRY_TYPE_RECIPE and sub_id != current_id
+        ):
+            errors[CONF_RECIPE_NAME] = "name_exists"
+        if not parse_ingredients(data[CONF_RECIPE_INGREDIENTS]):
+            errors[CONF_RECIPE_INGREDIENTS] = "no_ingredients"
+        return data, errors
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Create a recipe."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            data, errors = self._validate(user_input)
+            if not errors:
+                return self.async_create_entry(title=data[CONF_RECIPE_NAME], data=data)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(RECIPE_SCHEMA, user_input),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Edit a recipe."""
+        subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            data, errors = self._validate(user_input, subentry.subentry_id)
+            if not errors:
+                return self.async_update_and_abort(
+                    self._get_entry(), subentry, title=data[CONF_RECIPE_NAME], data=data
+                )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                RECIPE_SCHEMA, user_input or dict(subentry.data)
+            ),
+            errors=errors,
         )

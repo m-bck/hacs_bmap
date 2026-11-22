@@ -19,11 +19,16 @@ Artikel hinzufügen, abhaken, umbenennen und löschen. Das funktioniert auch per
 - **Kategorien:** Offene Artikel sind nach Kategorie sortiert, in derselben Reihenfolge wie in der App.
   Die Kategorie steht in der Beschreibung, z. B. „2 · 🥦 Obst & Gemüse“.
 - **Automatische Kategorisierung:** Neue Artikel aus Home Assistant bekommen automatisch eine passende Farbe.
+- **Rezepte:** Rezepte in Home Assistant hinterlegen und per Button, NFC-Tag, Automation oder Sprachbefehl
+  auf die Einkaufsliste setzen. Doppelte Artikel werden zusammengeführt, Mengen auf Portionen umgerechnet,
+  und vorhandene Zutaten lassen sich weglassen („Lasagne, aber Tomaten hab ich noch“).
 - Attribute: `list_id`, `purchased_items`, `shared_with` (Anzahl der Personen, mit denen die Liste geteilt ist)
   und `categories` (offene Artikel je Kategorie mit Name und Farbe, z. B. für ein Dashboard)
 - Ändert sich die PIN, fragt Home Assistant automatisch nach der neuen.
 
 ## Installation
+
+Voraussetzung: Home Assistant 2026.10 oder neuer (getestet mit 2026.10.4).
 
 ### HACS (benutzerdefiniertes Repository)
 
@@ -49,6 +54,7 @@ Dort Login und 4-stellige PIN eingeben (zu finden in der App unter *Einstellunge
 | Gekaufte Artikel anzeigen | an | Zeigt gekaufte Artikel als erledigt an. |
 | Neue Artikel automatisch kategorisieren | an | Siehe [Kategorien](#kategorien). |
 | Kategorie in der Beschreibung anzeigen | an | Die Menge bleibt editierbar, der Kategoriename wird beim Speichern ignoriert. |
+| Liste für Rezepte | erste Liste | Auf diese Liste kommen Rezepte von Buttons, NFC-Tags und Sprachbefehlen. |
 | Kategorien benennen | siehe unten | Zweiter Schritt der Optionen: ein Name je Farbe. |
 
 > Hinweis: Mit „Erledigte entfernen“ in Home Assistant werden die gekauften Artikel auch in
@@ -114,6 +120,94 @@ data:
 # Antwort: category_id: 7, category: "🧀 Kühlregal & Molkerei", source: keyword, reason: kase
 ```
 
+## Rezepte
+
+### Rezept anlegen
+
+*Einstellungen → Geräte & Dienste → Buy Me a Pie → ⋮ bzw. „+ Rezept hinzufügen“*. Jedes Rezept ist ein
+eigener Untereintrag und lässt sich dort später bearbeiten oder löschen.
+
+| Feld | Beispiel |
+|---|---|
+| Name | Lasagne |
+| Andere Namen | Nudelauflauf, Lasagna (für Sprachbefehle) |
+| Portionen | 4 |
+| Zutaten | eine pro Zeile, Menge vorne (siehe unten) |
+
+```text
+500 g Hackfleisch
+2 Dosen stückige Tomaten
+1 Zwiebel
+2 Zehen Knoblauch
+250 ml Milch
+Lasagneplatten
+Parmesan | 100 g
+# Gewürze habe ich immer da
+```
+
+- **Menge vorne:** Zahl (auch `1/2`, `½`, `1,5` oder `3-4`), optional mit Einheit
+  (`g`, `kg`, `ml`, `l`, `EL`, `TL`, `Dose`, `Bund`, `Zehe`, `Becher`, `Packung` …). Der Rest der Zeile ist der Artikelname.
+- **Alternative Schreibweise:** `Name | Menge`
+- **Umrechnen auf Portionen:** Gewichte und Volumen werden gerundet, z. B. 750 g, 375 ml. Gezählte Zutaten
+  wie Eier, Dosen oder Zwiebeln werden aufgerundet, es gibt also keine „4½ Eier“.
+- **Kommentare:** Zeilen mit `#` werden ignoriert.
+
+### Was beim Übernehmen passiert
+
+| Zutat ist … | Ergebnis |
+|---|---|
+| nicht auf der Liste | wird hinzugefügt (inkl. automatischer Kategorie) |
+| als gekauft auf der Liste | wird wieder aktiviert |
+| schon offen auf der Liste | bleibt, wie sie ist. Die Menge wird nur eingetragen, wenn bisher keine dasteht. |
+| unter „ohne“ genannt | wird übersprungen. „Tomaten“ trifft „stückige Tomaten“, aber nicht „Tomatenmark“. |
+
+Zweimal dasselbe Rezept zu übernehmen erzeugt also keine Dubletten.
+
+### Button, NFC-Tag, Dashboard
+
+Für jedes Rezept gibt es einen Button, z. B. `button.lasagne_auf_die_einkaufsliste`.
+
+```yaml
+# NFC-Tag am Kochbuch oder am Kühlschrank
+triggers:
+  - trigger: tag
+    tag_id: rezept-lasagne
+actions:
+  - action: button.press
+    target:
+      entity_id: button.lasagne_auf_die_einkaufsliste
+```
+
+### Aktionen
+
+```yaml
+action: buymeapie.add_recipe
+data:
+  recipe: Lasagne
+  portions: 6               # optional, rechnet die Mengen um
+  without: [Tomaten]        # optional
+  # todo_list: todo.wocheneinkauf   # optional, sonst die Liste für Rezepte
+response_variable: ergebnis  # optional: added, reactivated, already_on_list, skipped, unknown_exclusions
+```
+
+```yaml
+action: buymeapie.get_recipe   # ohne recipe: Liste aller Rezepte
+data:
+  recipe: Lasagne
+  portions: 2
+response_variable: rezept
+```
+
+### Sprachassistent
+
+- **Mit KI-Assistent** (z. B. OpenAI, Anthropic, Ollama mit „Assist“-Steuerung): Die Integration stellt zwei
+  Werkzeuge bereit, `buymeapie__add_recipe` und `buymeapie__get_recipe`, und nennt dem Modell die gespeicherten Rezepte.
+  Damit funktionieren freie Formulierungen wie „Was brauche ich für Lasagne?“, „Setz Lasagne für 6 auf die Liste“ oder
+  „Lasagne, aber Tomaten hab ich noch“.
+- **Ohne KI** (Standard-Assistent): [examples/custom_sentences/de/buymeapie.yaml](examples/custom_sentences/de/buymeapie.yaml)
+  nach `<config>/custom_sentences/de/` kopieren und Home Assistant neu starten. Danach funktionieren Sätze wie
+  „Setz Lasagne auf die Einkaufsliste“, „Wir kochen Chili für 6 Personen“ oder „Was brauche ich für Lasagne?“.
+
 ## Beispiele
 
 ```yaml
@@ -151,6 +245,7 @@ actions:
   Danach werden nur noch Änderungen über `GET /lists/{id}/changed_items/{timestamp}` abgefragt.
   Wichtig bei alten Listen: Der Server liefert auch gelöschte Artikel mit, das können mehrere hundert KB sein.
 - Schreiben: `POST /lists/{id}/items`, `PUT /lists/{id}/items/{item}`, `DELETE /lists/{id}/items/{item}`
+- Rezepte liegen nur in Home Assistant, als Untereinträge der Integration. Buy Me a Pie selbst bekommt nur die Artikel.
 - Kategorien: Der Artikelverlauf `GET /unique_items` wird alle 15 Minuten geladen. Kategorien werden mit
   `PUT /unique_items/{titel}` und `{group_id, permanent, use_count}` gesetzt.
 - Antwortet der Server mit 423 (gesperrt), wird nach 1 s erneut versucht. Bei 401 bzw. 422 startet die erneute Anmeldung.

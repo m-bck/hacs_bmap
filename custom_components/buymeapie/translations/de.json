@@ -39,13 +39,15 @@
           "scan_interval": "Abfrageintervall",
           "show_completed": "Gekaufte Artikel anzeigen",
           "auto_categorize": "Neue Artikel automatisch kategorisieren",
-          "category_in_description": "Kategorie in der Beschreibung anzeigen"
+          "category_in_description": "Kategorie in der Beschreibung anzeigen",
+          "recipe_list": "Liste für Rezepte"
         },
         "data_description": {
           "scan_interval": "Wie oft nach Änderungen gefragt wird (mindestens 20 Sekunden).",
           "show_completed": "Zeigt gekaufte Artikel als erledigt an. Achtung: \"Erledigte entfernen\" löscht sie dann auch in Buy Me a Pie.",
           "auto_categorize": "Artikel, die aus Home Assistant neu angelegt werden und noch keine Farbe haben, bekommen eine passende Kategorie (Schlagwörter und eigener Verlauf).",
-          "category_in_description": "Zeigt z. B. „2 · 🥦 Obst & Gemüse“ unter dem Artikel. Die Menge bleibt editierbar."
+          "category_in_description": "Zeigt z. B. „2 · 🥦 Obst & Gemüse“ unter dem Artikel. Die Menge bleibt editierbar.",
+          "recipe_list": "Auf diese Liste kommen Rezepte von Buttons, NFC-Tags und Sprachbefehlen. Standard: die erste Liste."
         }
       },
       "categories": {
@@ -87,6 +89,92 @@
           "name": "Artikel",
           "description": "Name des Artikels."
         }
+      }
+    },
+    "add_recipe": {
+      "name": "Rezept auf die Einkaufsliste",
+      "description": "Setzt die Zutaten eines gespeicherten Rezepts auf die Einkaufsliste. Was schon offen auf der Liste steht, kommt nicht doppelt dazu.",
+      "fields": {
+        "recipe": {
+          "name": "Rezept",
+          "description": "Name oder anderer Name des Rezepts."
+        },
+        "portions": {
+          "name": "Portionen",
+          "description": "Rechnet die Mengen auf diese Zahl an Portionen um."
+        },
+        "without": {
+          "name": "Ohne",
+          "description": "Zutaten, die nicht auf die Liste sollen, z. B. weil sie noch da sind."
+        },
+        "todo_list": {
+          "name": "Liste",
+          "description": "Ziel-Liste; Standard ist die Liste für Rezepte aus den Optionen."
+        }
+      }
+    },
+    "get_recipe": {
+      "name": "Rezept abrufen",
+      "description": "Liefert die Zutaten eines Rezepts, ohne Rezept die Liste aller Rezepte.",
+      "fields": {
+        "recipe": {
+          "name": "Rezept",
+          "description": "Name des Rezepts."
+        },
+        "portions": {
+          "name": "Portionen",
+          "description": "Rechnet die Mengen um."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "recipe": {
+      "entry_type": "Rezept",
+      "initiate_flow": {
+        "user": "Rezept hinzufügen",
+        "reconfigure": "Rezept bearbeiten"
+      },
+      "step": {
+        "user": {
+          "title": "Rezept hinzufügen",
+          "description": "Eine Zutat pro Zeile, Menge vorne, z. B. „500 g Hackfleisch“, „2 Dosen stückige Tomaten“, „Lasagneplatten“. Alternativ „Parmesan | 100 g“. Zeilen mit # werden ignoriert.",
+          "data": {
+            "name": "Name",
+            "aliases": "Andere Namen",
+            "portions": "Portionen",
+            "ingredients": "Zutaten"
+          },
+          "data_description": {
+            "aliases": "Kommagetrennt, z. B. „Lasagna, Nudelauflauf“, damit Sprachbefehle das Rezept finden.",
+            "portions": "Für wie viele Portionen die Mengen gelten. Beim Übernehmen kann umgerechnet werden."
+          }
+        },
+        "reconfigure": {
+          "title": "Rezept bearbeiten",
+          "description": "Eine Zutat pro Zeile, Menge vorne.",
+          "data": {
+            "name": "Name",
+            "aliases": "Andere Namen",
+            "portions": "Portionen",
+            "ingredients": "Zutaten"
+          }
+        }
+      },
+      "error": {
+        "name_missing": "Bitte einen Namen angeben.",
+        "name_exists": "Ein Rezept mit diesem Namen gibt es schon.",
+        "no_ingredients": "Bitte mindestens eine Zutat eintragen."
+      },
+      "abort": {
+        "reconfigure_successful": "Das Rezept wurde gespeichert."
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "add_recipe": {
+        "name": "Auf die Einkaufsliste"
       }
     }
   }

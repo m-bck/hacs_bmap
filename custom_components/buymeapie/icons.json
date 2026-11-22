@@ -4,6 +4,11 @@
       "shopping_list": {
         "default": "mdi:cart-outline"
       }
+    },
+    "button": {
+      "add_recipe": {
+        "default": "mdi:chef-hat"
+      }
     }
   },
   "services": {
@@ -12,6 +17,12 @@
     },
     "suggest_category": {
       "service": "mdi:lightbulb-question-outline"
+    },
+    "add_recipe": {
+      "service": "mdi:chef-hat"
+    },
+    "get_recipe": {
+      "service": "mdi:book-open-variant"
     }
   }
 }
