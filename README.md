@@ -99,3 +99,7 @@ python3.14 -m venv .venv && .venv/bin/pip install -r requirements_test.txt
 - Die Reihenfolge der Artikel kann nicht geändert werden, weil die API kein Feld dafür hat.
 - Kategorien (`group_id`) werden noch nicht angezeigt.
 - Listen werden noch nicht in Home Assistant angelegt, umbenannt oder gelöscht.
+
+## Lizenz
+
+MIT, siehe [LICENSE](LICENSE).
