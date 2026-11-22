@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Buy Me a Pie",
+        "description": "Melde dich mit dem Login und der 4-stelligen PIN deines Buy-Me-a-Pie-Kontos an.",
+        "data": {
+          "login": "Login",
+          "pin": "PIN"
+        },
+        "data_description": {
+          "login": "Der Login-Name aus der App (Einstellungen → Konto).",
+          "pin": "Die 4-stellige PIN deines Kontos."
+        }
+      },
+      "reauth_confirm": {
+        "title": "PIN erneut eingeben",
+        "description": "Die PIN für {login} wurde abgelehnt. Bitte gib die aktuelle PIN ein.",
+        "data": {
+          "pin": "PIN"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Login oder PIN ist falsch.",
+      "cannot_connect": "Buy Me a Pie ist nicht erreichbar.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieses Konto ist bereits eingerichtet.",
+      "reauth_successful": "Die Anmeldung wurde aktualisiert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen",
+        "data": {
+          "scan_interval": "Abfrageintervall",
+          "show_completed": "Gekaufte Artikel anzeigen"
+        },
+        "data_description": {
+          "scan_interval": "Wie oft nach Änderungen gefragt wird (mindestens 20 Sekunden).",
+          "show_completed": "Zeigt gekaufte Artikel als erledigt an. Achtung: \"Erledigte entfernen\" löscht sie dann auch in Buy Me a Pie."
+        }
+      }
+    }
+  }
+}

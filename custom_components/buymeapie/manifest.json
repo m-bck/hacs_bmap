@@ -1,0 +1,15 @@
+{
+  "domain": "buymeapie",
+  "name": "Buy Me a Pie",
+  "codeowners": [
+    "@m-bck"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/m-bck/hacs_bmap",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/m-bck/hacs_bmap/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

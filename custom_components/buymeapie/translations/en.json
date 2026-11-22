@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Buy Me a Pie",
+        "description": "Sign in with the login and the 4-digit PIN of your Buy Me a Pie account.",
+        "data": {
+          "login": "Login",
+          "pin": "PIN"
+        },
+        "data_description": {
+          "login": "The login name shown in the app (Settings → Account).",
+          "pin": "The 4-digit PIN of your account."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter PIN",
+        "description": "The PIN for {login} was rejected. Please enter the current PIN.",
+        "data": {
+          "pin": "PIN"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Login or PIN is wrong.",
+      "cannot_connect": "Buy Me a Pie cannot be reached.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "The login was updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "scan_interval": "Polling interval",
+          "show_completed": "Show purchased items"
+        },
+        "data_description": {
+          "scan_interval": "How often to check for changes (at least 20 seconds).",
+          "show_completed": "Shows purchased items as completed. Note: \"Remove completed\" will then also delete them in Buy Me a Pie."
+        }
+      }
+    }
+  }
+}
